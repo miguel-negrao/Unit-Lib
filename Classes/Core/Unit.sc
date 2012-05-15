@@ -339,6 +339,8 @@ U : ObjectWithArgs {
 	var <>preparedServers;
 	var >waitTime; // use only to override waittime from args
 	var <>env;
+	var <mapObjects; // Identity dictionary of keys and UMapped objects 
+					 // analogous to synth.map(\freq, aBus)
 	
 	*initClass {
 	    synthDict = IdentityDictionary( );
@@ -381,6 +383,7 @@ U : ObjectWithArgs {
 		};
 		preparedServers = [];
 		env = (); // a place to store things in (for FreeUdef)
+		mapObjects = IdentityDictionary.new;
 		this.changed( \init );
 	}
 	allKeys { ^this.keys }
@@ -457,6 +460,21 @@ U : ObjectWithArgs {
 		} {
 		    this.get(key)
 		}
+	}
+	
+	map { |key, object|
+		mapObjects.at(key) !? _.stopMapping(this, key);
+		object = object.asUMapped;
+		this.set(key, object.currentValue);		
+		mapObjects.put(key, object);
+		object.startMapping(this, key);
+	}
+	
+	unmap { |key|
+		mapObjects.at(key) !? { |x| 
+			x.stopMapping(this, key);
+			mapObjects.removeAt(key); 
+		}		
 	}
 	
 	release { |releaseTime, doneAction| // only works if def.canFreeSynth == true
