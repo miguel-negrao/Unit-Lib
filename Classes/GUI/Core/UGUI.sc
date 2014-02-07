@@ -54,7 +54,8 @@ UGUI {
 				} {
 					x.spec.viewNumLines
 				};
-			}).sum;
+			}).sum
+		+ if( unit.mod.notNil ) { unit.mod.viewNumLines } {0};
 	}
 	
 	makeViews { |bounds|
@@ -112,6 +113,10 @@ UGUI {
 		
 		if( GUI.id == \cocoa ) { View.currentDrag = nil; };
 		
+		if(unit.mod.notNil) {
+			unit.mod.gui( composite, bounds )
+		};
+
 		unit.argSpecsForDisplay.do({ |argSpec, i|
 			var vw, key, value;
 			var decLastPos;
