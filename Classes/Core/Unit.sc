@@ -1111,7 +1111,7 @@ U : ObjectWithArgs {
 		    if( valuesToPrepare.size > 0  ) {
 			    act = MultiActionFunc( act );
 			    valuesToPrepare.do({ |val|
-				     val.prepare(servers, startPos, action: act.getAction)
+				     val.prepare(servers, startPos, act.getAction, this)
 			    });
 			    this.def.prepare(servers, this, act.getAction, startPos)
 		    } {
@@ -1149,7 +1149,7 @@ U : ObjectWithArgs {
 	    this.free;
 	    this.values.do{ |val|
 	        if(val.respondsTo(\dispose)) {
-	            val.dispose
+				val.dispose( this )
 	        }
 	    };
 	    this.modPerform( \dispose );
@@ -1168,7 +1168,7 @@ U : ObjectWithArgs {
 	disposeArgsFor { |server|
 	    this.values.do{ |val|
 	        if(val.respondsTo(\disposeFor)) {
-	            val.disposeFor(server)
+	            val.disposeFor(server, this)
 	        }
 	    };
 	    this.modPerform( \dispose );
