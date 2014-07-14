@@ -127,7 +127,7 @@ ULib {
 			servers = [LoadBalancer(*numServers.collect{ |i|
 				Server("ULib server "++(i+1), NetAddr("localhost",57110+i), options)
 			})];
-			Server.default = servers[0]
+			Server.default = this.allServers[0]
 		};
 
 
