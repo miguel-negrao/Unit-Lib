@@ -42,68 +42,91 @@ x.prepareAndStart
 
 x.stop
 x.dispose
+
+this needs to be redone such that:
+
+all resources are held in global variables
+how to set and reset the num channels ?
 */
 
 
 UBus {
 
-	classvar <>all;
-	var <>id;
-	var <>buses;
-	var <children;
-	var <>numChannels = 1;
+	classvar <>gBuses;
+	classvar <>gChildren;
+	classvar <>gNumChannels;
+	classvar <>gType;
 
-	*new { |id = \default, numChannels = 1| // only returns new object if doesn't exist
-		var x = this.get(id) ?? { this.basicNew( id, numChannels ) };
-		//"new id: % hash: %".format(id, x.hash).postln;
-		^x
+	var <id;
+
+	*initClass {
+		gBuses = Dictionary.new;
+		gChildren = Dictionary.new;
+		gNumChannels = Dictionary.new;
+		gType = Dictionary.new;
 	}
 
-	*basicNew { |id = \default, numChannels = 1|
-		//"basicNew".postln;
-		^super.new.id_( id ).numChannels_(numChannels).addToAll;
-	}
-
-	*get { |id|
-		//"get id: % returns %".format(id, all.detect({ |item| item.id === id }) ).postln;
-		^all.detect({ |item| item.id === id })
+	*new { |id = \default, numChannels| // only returns new object if doesn't exist
+		//var s = "new - % %".format(id,numChannels).postln;
+		numChannels !? 	gNumChannels.put(id, _);
+		gNumChannels[id] ?? { gNumChannels.put(id, 1) };
+		gType[id] ?? { gType.put(id, \audio ) };
+		^super.newCopyArgs( id )
 	}
 
 
-	*clear {
-		all = nil
+	*audio { |id = \default, numChannels| // only returns new object if doesn't exist
+		//var s = "audio - % %".format(id,numChannels).postln;
+		//var x = this.get(id) ?? { this.basicNew( id, \audio, numChannels ) };
+		//"audio id: % hash: %".format(id, x.hash).postln;
+		numChannels !? 	gNumChannels.put(id, _);
+		gNumChannels[id] ?? { gNumChannels.put(id, 1) };
+		gType.put(id, \audio );
+		^super.newCopyArgs( id )
+
 	}
+
+	*control { |id = \default, numChannels| // only returns new object if doesn't exist
+
+		//var s = "control - % %".format(id,numChannels).postln;
+		//"control id: % hash: %".format(id, x.hash).postln;
+		numChannels !? 	gNumChannels.put(id, _);
+		gNumChannels[id] ?? { gNumChannels.put(id, 1) };
+		gType.put(id, \control );
+		^super.newCopyArgs( id )
+	}
+
+	numChannels{ ^gNumChannels[id] }
+	numChannels_ { |n| gNumChannels.put(id, n) }
+
+	type{ ^gType[id] }
+	type_ { |aType| gType.put(id, aType) }
+
+	children{ ^gChildren[id] }
+	children_{ |obj| gChildren.put(id, obj) }
+
+	buses{ ^gBuses[id] }
+	buses_{ |xs| gBuses.put(id, xs) }
 
 	addChild { |obj|
-		//"id: % hash: % adding child: % to children: of class %".format(this.id, this.hash, obj, children, children.class).postln;
-		this.children_( children.add( obj ) );
-		//"children is now %".format(children).postln;
+		//"id: % hash: % adding child: % to children: of class %".format(this.id, this.hash, obj, this.children, this.children.class).postln;
+		this.children_( this.children.add( obj ) );
+		//"children is now %".format(this.children).postln;
 		this.changed( \addChild, obj );
 	}
 
 	removeChild { |obj|
 		var res;
-		//"id: % hash: %".format(this.id, this.hash).postln;
-		children !? {
-			res = children.remove( obj );
+		//"id: % hash: % obj:% objhash: % children: %".format(this.id, this.hash, obj, obj.hash, this.children.collect{ |x| [x,x.hash] }).postln;
+		this.children !? { |x|
+			res = x.remove( obj );
 			//"removed: %".format(res).postln;
 			if( res.notNil ) { this.changed( \removeChild, obj ); };
 		};
 	}
 
-	children_{ |obj|
-		//"setting children in id: % hash: % to %".format(id, this.hash, obj).postln;
-		children = obj
-	}
-
-	addToAll {
-		all !? { all.removeAllSuchThat({ |item| item.id === this.id }); };
-		all = all.asCollection.add( this );
-		this.class.changed( \all, \add, this );
-	}
-
 	prepare { |servers, startPos = 0, action, unit|
-		//"prepare: id: % hash: % servers: % this: % unit: %".format(this.id, this.hash, servers, this, unit).postln;
+	//"prepare: id: % hash: % servers: % this: % unit: %".format(this.id, this.hash, servers, this, unit).postln;
 		this.makeIfEmpty( servers );
 		this.addChild( unit );
 		action.value;
@@ -116,26 +139,30 @@ UBus {
 	}
 
     asControlInputFor { |server, startPos = 0|
-		^buses.detect({ |item|
+		var x = this.buses.detect({ |item|
 			item.server == server
-		})
+		});
+		//"UBus % hash: % buses: % #asControlInputFor> %".format(this.id, this.hash, this.buses, x).postln;
+		^x
 	}
 
 	makeBus { |server|
-		//var d1 = "UBus#makeBus - id:%".format(id).postln;
+		//var d1 = "UBus#makeBus hash: % - id:%".format(this.hash,id).postln;
+		//var d2 = 5.dumpBackTrace;
 		var bus;
-		bus = Bus.audio(server, numChannels);
-		buses = buses.add( bus );
-		//"buses :%".format(buses).postln;
+
+		bus = Bus.perform(this.type, server, this.numChannels);
+		this.buses_( this.buses.add( bus ) );
+		//"buses :%".format(this.buses).postln;
 		this.changed( \start );
 		^bus;
 	}
 
 	free { |target|
-		if( buses.size > 0 ) {
-			buses.do(_.free);
+		if( this.buses.size > 0 ) {
+			this.buses.do(_.free);
 			//"freeing %".format(id).postln;
-			buses = [];
+			this.buses_([]);
 			this.changed( \end );
 		};
 	}
@@ -143,13 +170,13 @@ UBus {
 
 	makeIfEmpty { |servers|
 		servers = servers.asCollection;
-		if( children.size == 0 ) {
+		if( this.children.size == 0 ) {
 			servers.collect({ |s|
 				this.makeBus( s );
 			})
 		} {
 			servers.collect({ |s|
-				buses.detect({ |item|
+				this.buses.detect({ |item|
 					item.server == s
 				}) ?? {
 					this.makeBus( s );
@@ -159,13 +186,8 @@ UBus {
 	}
 
 	freeIfEmpty {
-		if( children.size == 0 ) {
+		if( this.children.size == 0 ) {
 			this.free;
 		};
-	}
-
-	deepCopy {
-		//"I'm being deep copied id:% hash%".format(id, this.hash).postln;
-		^this
 	}
 }
