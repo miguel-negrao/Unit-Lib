@@ -141,7 +141,7 @@
 
 + PositiveIntegerSpec {
 	
-	massEditSpec { |inArray|
+	/*massEditSpec { |inArray|
 		^ArrayControlSpec( ).adaptToSpec( this ).default_( inArray );
 	}
 	
@@ -151,6 +151,14 @@
 	
 	massEdit { |inArray, params|
 		^params;
+	}*/
+
+	massEditSpec { ^nil }
+
+	massEditValue { ^0 }
+
+	massEdit { |inArray, params|
+		^inArray;  // no mass editing for default spec
 	}
 }
 
