@@ -32,6 +32,7 @@ UScore : UEvent {
 	var <playState = \stopped, <updatePos = true;
 	var <soloed, <softMuted;
 	var <>tempoMap;
+	var <>extraResources;
 
 
 	/* playState is a finite state machine. The transitions graph:
@@ -93,18 +94,25 @@ UScore : UEvent {
 	/*
 	* Syntaxes for UScore creation:
 	* UScore( <UEvent 1>, <UEvent 2>,...)
-	* UChain(startTime,<UEvent 1>, <UEvent 2>,...)
-	* UChain(startTime,track,<UEvent 1>, <UEvent 2>,...)
+	* UScore(startTime,<UEvent 1>, <UEvent 2>,...)
+	* UScore(startTime,track,<UEvent 1>, <UEvent 2>,...)
+	* UScore(startTime,track,extraResources,<UEvent 1>, <UEvent 2>,...)
 	*/
 
 	init{ |args|
 		if( args[0].isNumber ) { 
 			startTime = args[0]; 
-			args = args[1..] 
-		};
+			args = args[1..];
+
 		if( args[0].isNumber ) { 
 			track = args[0]; 
-			args = args[1..] 
+				args = args[1..];
+
+				if( args[0].isArray ) {
+					extraResources = args[0];
+					args = args[1..];
+				}
+			}
 		};
 	    events = if(args.size >0){args}{Array.new};
 	    soloed = [];
@@ -867,15 +875,19 @@ UScore : UEvent {
 	getInitArgs {
 		var numPreArgs = -1;
 		
+		if( extraResources.size > 0 ) {
+			numPreArgs = 2
+		} {
 		if( track != 0 ) {
 			numPreArgs = 1
 		} {
 			if( startTime != 0 ) {
 				numPreArgs = 0
 			}
+			}
 		};
 		
-		^([ startTime, track ][..numPreArgs]) ++ events;
+		^([ startTime, track, extraResources][..numPreArgs]) ++ events;
 	}
 	
 	storeArgs { ^this.getInitArgs }
@@ -897,7 +909,7 @@ UScore : UEvent {
 		if( useArray ) {
 			stream << "]";
 		};
-		stream << ")";
+		stream << ")"
 	}
 	
 	storeModifiersOn { |stream|
