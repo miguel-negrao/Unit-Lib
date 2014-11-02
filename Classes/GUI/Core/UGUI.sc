@@ -55,7 +55,7 @@ UGUI {
 					x.spec.viewNumLines
 				};
 			}).sum
-		+ if( unit.mod.notNil ) { unit.mod.viewNumLines } {0};
+		+ if( unit.mod.notNil and: { [ImmMod, ImmDef].includes(unit.mod.class) } ) { unit.mod.viewNumLines } {0};
 	}
 	
 	makeViews { |bounds|
@@ -113,7 +113,7 @@ UGUI {
 		
 		if( GUI.id == \cocoa ) { View.currentDrag = nil; };
 		
-		if(unit.mod.notNil) {
+		if(unit.mod.notNil and: { [ImmMod, ImmDef].includes(unit.mod.class) } ) {
 			unit.mod.gui( composite, bounds )
 		};
 
