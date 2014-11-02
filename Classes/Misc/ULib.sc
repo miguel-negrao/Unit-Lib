@@ -60,7 +60,7 @@ ULib {
         killer.states = [["K"]];
         killer.canFocus = false;
         killer.action = { Server.killAll };
-        w.view.decorator.postln.nextLine;
+        w.view.decorator.nextLine;
         servers.do{ |s| s.makeView(w) };
         w.view.keyDownAction = { arg view, char, modifiers;
             // if any modifiers except shift key are pressed, skip action
