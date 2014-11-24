@@ -105,18 +105,20 @@ ULib {
         ^w
     }
 
-	*startup { |sendDefsOnInit = true, createServers = false, numServers = 4, options|
+	*startup { |sendDefsOnInit = true, createServers = false, numServers = 4, options, startGuis = true|
 
 		UChain.makeDefaultFunc = {
 			UChain( \bufSoundFile, \stereoOutput ).useSndFileDur
 		};
 
-		if( (thisProcess.platform.class.asSymbol == 'OSXPlatform') && {
+		if( startGuis ) {
+			if( (thisProcess.platform.class.asSymbol == 'OSXPlatform') && {
 				thisProcess.platform.ideName.asSymbol === \scapp
-		}) {
-			UMenuBar();
-		} {
-			UMenuWindow();
+			}) {
+				UMenuBar();
+			} {
+				UMenuWindow();
+			};
 		};
 
 		UnitRack.defsFolders = UnitRack.defsFolders.add(
@@ -148,8 +150,10 @@ ULib {
 			Udef.loadOnInit = true;
         };
 
-        UGlobalGain.gui;
-        UGlobalEQ.gui;
+		if( startGuis ) {
+			UGlobalGain.gui;
+			UGlobalEQ.gui;
+		};
 
 		"\n\tUnit Lib started".postln
 	}
