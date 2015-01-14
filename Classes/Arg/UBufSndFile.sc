@@ -27,32 +27,41 @@ specs for this thing...
 
 
 UGlobalBufSndFileArg {
+	classvar <>globalBufSndFiles;
 	var <id;
 	//for internal use
-	var <globalBufSndFile;
+
+	*initClass {
+		globalBufSndFiles = IdentityDictionary.new
+	}
 
 	*new{ |id| ^super.newCopyArgs(id) }
 
 	prepare { |servers, startPos = 0, action, unit|
-		globalBufSndFile = UGlobalBufSndFile.get(id);
+		var globalBufSndFile = UGlobalBufSndFile.get(id);
 		//We store the globalBufSndFile so that we can still free the buffers even if the global buffer gets changed meanwhile to another file
 		if( globalBufSndFile.isNil ){ Error("No UGlobalBufSndFile loaded for id %".format(id)).throw };
-		globalBufSndFile.prepare(servers, startPos, action, unit)
+		globalBufSndFiles.put( this, globalBufSndFile );
+		globalBufSndFile.prepare( servers, startPos, action, unit)
 	}
 
 	disposeFor { |server, unit|
-		if( globalBufSndFile.isNil ){ Error("No UGlobalBufSndFile prepared for id %".format(id)).throw };
+		var d1 = "UGlobalBufSndFileArg disposeFor %".format(server, unit).postln;
+		var globalBufSndFile = globalBufSndFiles.at(this);
+		if( globalBufSndFile.isNil ){ Error("No UGlobalBufSndFile prepared for id %".format(id)); "No UGlobalBufSndFile prepared for id %".format(id).warn };
 		globalBufSndFile.disposeFor(server, unit);
-		globalBufSndFile = nil;
+		//if( globalBufSndFile.childrenisEmpty ) { globalBufSndFiles.put(this, nil) };
 	}
 
     asControlInputFor { |server, startPos = 0|
+		var globalBufSndFile = globalBufSndFiles.at(this);
 		if( globalBufSndFile.isNil ){ Error("No UGlobalBufSndFile prepared for id %".format(id)).throw };
-		^globalBufSndFile.asControlInputFor(server, startPos)
+		"UGlobalBufSndFileArg asControlInputFor %".format(server).postln;
+		^globalBufSndFile.asControlInputFor(server, startPos).postln
 	}
 
 	numChannelsForPlayBuf {
-		globalBufSndFile = UGlobalBufSndFile.get(id);
+		var globalBufSndFile = UGlobalBufSndFile.get(id);
 		if( globalBufSndFile.isNil ){ Error("No UGlobalBufSndFile loaded for id %".format(id)).throw };
 		^globalBufSndFile.bufSndFile.numChannelsForPlayBuf
     }
@@ -62,7 +71,7 @@ UGlobalBufSndFileArg {
 	}
 
 	path {
-		globalBufSndFile = UGlobalBufSndFile.get(id);
+		var globalBufSndFile = UGlobalBufSndFile.get(id);
 		if( globalBufSndFile.isNil ){ Error("No UGlobalBufSndFile loaded for id %".format(id)).throw };
 		^globalBufSndFile.bufSndFile.path
 	}
@@ -134,16 +143,15 @@ UGlobalBufSndFile {
 		children = obj
 	}
 
-
+	//will prepare
 	prepare { |servers, startPos = 0, action, unit|
-		//"prepare: id: % hash: % servers: % this: % unit: %".format(this.id, this.hash, servers, this, unit).postln;
-		this.makeIfEmpty( servers );
+		"prepare: id: % hash: % servers: % this: % unit: %".format(this.id, this.hash, servers, this, unit).postln;
+		this.makeIfEmpty( servers, action );
 		this.addChild( unit );
-		action.value;
 	}
 
 	disposeFor { |server, unit|
-		//"dispose: id: % hash: % server: % unit:%".format(this.id, this.hash, server, unit).postln;
+		"dispose: id: % hash: % server: % unit:%".format(this.id, this.hash, server, unit).postln;
 		this.removeChild( unit );
 		this.freeIfEmpty;
 	}
@@ -155,21 +163,23 @@ UGlobalBufSndFile {
 		^[ buffer, bufSndFile.rate, bufSndFile.loop.binaryValue ]
 	}
 
-	makeIfEmpty { |servers|
+	makeIfEmpty { |servers, action|
 		servers = servers.asCollection;
+		action = MultiActionFunc( action );
 		if( children.size == 0 ) {
 			servers.collect({ |s|
-				bufSndFile.makeBuffer( s );
+				bufSndFile.makeBuffer( s, 0, action.getAction );
 			})
 		} {
 			servers.collect({ |s|
 				bufSndFile.buffers.detect({ |item|
 					item.server == s
 				}) ?? {
-					bufSndFile.makeBuffer( s );
+					bufSndFile.makeBuffer( s, 0, action.getAction );
 				};
 			});
-		}
+		};
+		action.getAction.value;
 	}
 
 	freeIfEmpty {
