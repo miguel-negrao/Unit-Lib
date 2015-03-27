@@ -111,16 +111,6 @@ ULib {
 			UChain( \bufSoundFile, \stereoOutput ).useSndFileDur
 		};
 
-		if( startGuis ) {
-			if( (thisProcess.platform.class.asSymbol == 'OSXPlatform') && {
-				thisProcess.platform.ideName.asSymbol === \scapp
-			}) {
-				UMenuBar();
-			} {
-				UMenuWindow();
-			};
-		};
-
 		UnitRack.defsFolders = UnitRack.defsFolders.add(
 			Platform.userAppSupportDir ++ "/UnitRacks/";
 		);
@@ -130,6 +120,21 @@ ULib {
 				Server("ULib server "++(i+1), NetAddr("localhost",57110+i), options)
 			})];
 			Server.default = this.allServers[0]
+		};
+
+		if( startGuis ) {
+			if( (thisProcess.platform.class.asSymbol == 'OSXPlatform') && {
+				thisProcess.platform.ideName.asSymbol === \scapp
+			}) {
+				UMenuBar();
+			} {
+				UMenuWindow();
+			};
+			UGlobalGain.gui;
+			UGlobalEQ.gui;
+			if( ((thisProcess.platform.ideName == "scqt") && (ULib.allServers.size == 1)).not  ) {
+				ULib.serversWindow
+			}
 		};
 
 
@@ -149,11 +154,6 @@ ULib {
 			this.getDefaultUdefs;
 			Udef.loadOnInit = true;
         };
-
-		if( startGuis ) {
-			UGlobalGain.gui;
-			UGlobalEQ.gui;
-		};
 
 		"\n\tUnit Lib started".postln
 	}
