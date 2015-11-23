@@ -19,6 +19,8 @@
 
 ULib {
     classvar <>servers;
+	classvar <>useSupernova = false;
+
 
     *initClass {
         servers = [Server.default]
@@ -114,6 +116,10 @@ ULib {
 		UnitRack.defsFolders = UnitRack.defsFolders.add(
 			Platform.userAppSupportDir ++ "/UnitRacks/";
 		);
+
+		if( Server.program.asString.endsWith("supernova") ) {
+			ULib.useSupernova = true
+		};
 
 		if(createServers) {
 			if(numServers > 1) {

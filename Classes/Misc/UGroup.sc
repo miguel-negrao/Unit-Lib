@@ -74,7 +74,7 @@ UGroup {
 	makeGroup { |target|
 		//var d1 = "UGroup#makeGroup - id:% parent:%".format(id, target).postln;
 		var group;
-		group = Group(target, addAction);
+		group = if(ULib.useSupernova){ ParGroup(target, addAction) } { Group(target, addAction) };
 		groups = groups.add( group );
 		this.changed( \start );
 		^group;

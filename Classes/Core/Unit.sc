@@ -254,7 +254,7 @@ Udef : GenericDef {
 	load { |server| this.loadSynthDef( server ) }
 	send { |server| this.sendSynthDef( server ) }
 	
-	makeSynth { |unit, target, startPos = 0, synthAction|
+	makeSynth { |unit, target, startPos = 0, synthAction, buses|
 	    var synth;
 	    var started = false;
 	    if( unit.shouldPlayOn( target ) != false ) {
@@ -265,7 +265,7 @@ Udef : GenericDef {
 					.warn;
 			};
 			*/
-			synth = this.createSynth( unit, target, startPos );
+			synth = this.createSynth( unit, target, startPos, buses );
 			synth.startAction_({ |synth|
 				unit.changed( \go, synth );
 				started = true;
@@ -360,9 +360,9 @@ Udef : GenericDef {
 		// assumes the Udef contains a UEnv
 	
 	// these may differ in subclasses of Udef
-	createSynth { |unit, target, startPos = 0| // create A single synth based on server
+	createSynth { |unit, target, startPos = 0, buses| // create A single synth based on server
 		target = target ? Server.default;
-		^Synth( this.synthDefName, unit.getArgsFor( target, startPos ), target, \addToTail );
+		^Synth( this.synthDefName, unit.getArgsFor( target, startPos, buses ), target, \addToTail );
 	}
 	
 	setSpec { |name, spec, mode, constrainDefault = true, private|
@@ -787,15 +787,33 @@ U : ObjectWithArgs {
 		this.prSet( *args );
 	}
 	
-	getArgsFor { |server, startPos = 0|
+	getArgsFor { |server, startPos = 0, buses|
 		server = server.asTarget.server;
-		^this.class.formatArgs( this.getSynthArgs, server, startPos );
+		^this.class.formatArgs( this.getSynthArgs(server, buses), server, startPos );
 	}
 	
-	getSynthArgs {
+	getSynthArgs { |server, buses|
 		var nonsynthKeys;
 		nonsynthKeys = this.argSpecs.select({ |item| item.mode == \nonsynth }).collect(_.name);
-		^this.args.clump(2).select({ |item| nonsynthKeys.includes( item[0] ).not }).flatten(1);
+		^if( ULib.useSupernova ) {
+			this.args.clump(2)
+			.select({ |item| nonsynthKeys.includes( item[0] ).not })
+			.collect{ |xs|
+				var key = xs[0];
+				if( key.asString.findRegexp("u_[oi]_ar_([0-9]*)_bus").size > 0 ) {
+					[key, buses.at(\audio).at(xs[1]).at(server).index - server.options.firstPrivateBus ]
+				} {
+					if( key.asString.findRegexp("u_[oi]_kr_([0-9]*)_bus").size > 0 ) {
+						[key, buses.at(\control).at(xs[1]).at(server).index ]
+					} {
+						xs
+					}
+				}
+			}
+			.flatten(1);
+		} {
+			this.args.clump(2).select({ |item| nonsynthKeys.includes( item[0] ).not }).flatten(1)
+		}
 	}
 	
 	*formatArgs { |inArgs, server, startPos = 0|
@@ -939,9 +957,9 @@ U : ObjectWithArgs {
 		};
 	}
 
-	makeSynth { |target, startPos = 0, synthAction|
+	makeSynth { |target, startPos = 0, synthAction, buses|
 		var synth;
-		synth = this.def.makeSynth( this, target, startPos, synthAction );
+		synth = this.def.makeSynth( this, target, startPos, synthAction, buses );
 		if( synth.notNil ) {
 			this.umapPerform( \makeSynth, synth, startPos );
 		};

@@ -34,6 +34,8 @@ UChain : UEvent {
 	classvar <>makeDefaultFunc;
 	classvar <>nowPreparingChain;
 
+	classvar <>busDict;
+
 	var <units; //, <>groups;
 	var <prepareTasks;
 	var <>preparedServers;
@@ -63,6 +65,8 @@ UChain : UEvent {
 		makeDefaultFunc = {
 			UChain( [ \sine, [ \freq, 440 ] ], \output ).duration_(10).fadeIn_(1).fadeOut_(1);
 		};
+
+		busDict = IdentityDictionary();
 	}
 	
 	*new { |...args|
@@ -594,10 +598,21 @@ UChain : UEvent {
 		                if( started == false ) { group.changed( \n_go ) };
 	                    this.removeGroup( group );
 	                    UGroup.end( this );
+				        if( ULib.useSupernova ) {
+					      this.buses.do{ |byType|
+						    byType.do{ |byServer|
+							  byServer.do{ |b|
+								b.free;
+								//"freeing %".format(b).postln;
+							  }
+						    }
+					       };
+					       this.buses_(IdentityDictionary());
+				        };
 	                    this.changed( \end, group );
 	                });
 	        
-	        units.do( _.makeSynth(group, startPos) );
+			units.do( _.makeSynth(group, startPos, buses: this.buses) );
 	        this.addGroup( group );
 	        this.changed( \start, group );
 	    };
@@ -700,6 +715,10 @@ UChain : UEvent {
 		};
 	}
 
+	buses_ { |buses| this.class.busDict.put( this, buses ); }
+
+	buses { ^this.class.busDict.at(this) }
+
 	prepare { |target, startPos = 0, action|
 		var cpu;
 		
@@ -743,6 +762,34 @@ UChain : UEvent {
 			tg;
 		});
 		preparedServers = target;
+
+		//bus management
+		if( ULib.useSupernova ) {
+			var f = { |rate|
+				IdentityDictionary.with(*target.collect{ |t|
+					t.server -> Bus.perform(rate, t.server, 1)
+				})
+			};
+			this.buses_(
+				(
+					audio:
+					IdentityDictionary.with(*this.units
+		.collect{ |x| (x.audioIns ++ x.audioOuts) }
+						.flat.as(Set).as(Array).collect{ |i|
+							i -> f.(\audio)
+					}
+					),
+					control:
+					IdentityDictionary.with(*this.units
+						.collect{ |x| (x.controlIns ++ x.controlOuts) }
+						.flat.as(Set).as(Array).collect{ |i|
+							i -> f.(\control)
+					}
+					)
+				)
+			)
+		};
+
 		this.updateDur;
 		units.do( _.prepare(target, startPos, action.getAction ) );
 	     action.getAction.value; // fire action at least once
