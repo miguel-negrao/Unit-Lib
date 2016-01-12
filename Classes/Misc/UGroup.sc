@@ -18,23 +18,23 @@
 */
 
 UGroup {
-	
+
 	classvar <>all;
 	var <>id;
 	var <>groups;
 	var <>children;
 	var <>parent;
 	var <>addAction = \addToHead;
-	
+
 	*new { |id = \default, parent| // only returns new object if doesn't exist
 		^this.get(id) ?? { this.basicNew( id, parent ) };
 	}
-	
+
 	*basicNew { |id = \default, parent|
 		var check = if(parent == id){ Error("UGroup parent must be different from self").throw };
 		^super.new.id_( id ).parent_(parent).addToAll;
 	}
-	
+
 	*start { |id, targets, obj, parent|
 		if( id.notNil ) {
 			^this.new( id, parent ).start( targets, obj );
@@ -42,13 +42,13 @@ UGroup {
 			^targets;
 		};
 	}
-	
+
 	*end { |obj|
 		all.do({ |item|
 			item.end( obj );
 		});
 	}
-	
+
 	*get { |id|
 		^all.detect({ |item| item.id === id })
 	}
@@ -59,27 +59,27 @@ UGroup {
 		this.addChild( obj );
 		^grps;
 	}
-	
+
 	end { |obj|
 		this.removeChild( obj );
 		this.freeIfEmpty;
 	}
-	
+
 	addToAll {
 		all !? { all.removeAllSuchThat({ |item| item.id === this.id }); };
 		all = all.asCollection.add( this );
 		this.class.changed( \all, \add, this );
 	}
-	
+
 	makeGroup { |target|
 		//var d1 = "UGroup#makeGroup - id:% parent:%".format(id, target).postln;
 		var group;
-		group = if(ULib.useSupernova){ ParGroup(target, addAction) } { Group(target, addAction) };
+		group = if(ULib.useSupernova && (id.asString[0] == $p).postln){ ParGroup(target, addAction) } { Group(target, addAction) };
 		groups = groups.add( group );
 		this.changed( \start );
 		^group;
 	}
-	
+
 	free { |target|
 		if( groups.size > 0 ) {
 			groups.do(_.free);
@@ -91,20 +91,20 @@ UGroup {
 			this.changed( \end );
 		};
 	}
-	
+
 	addChild { |obj|
 		children = children.add( obj );
 		this.changed( \addChild, obj );
 	}
-	
+
 	removeChild { |obj|
 		var res;
-		children !? { 
+		children !? {
 			res = children.remove( obj );
 			if( res.notNil ) { this.changed( \removeChild, obj ); };
 		};
 	}
-	
+
 	makeIfEmpty { |targets|
 		var grps;
 		targets = targets.asCollection;
@@ -143,7 +143,7 @@ UGroup {
 			grps;
 		};
 	}
-	
+
 	freeIfEmpty {
 		if( children.size == 0 ) {
 			this.free;

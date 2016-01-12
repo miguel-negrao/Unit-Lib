@@ -65,8 +65,8 @@ UX : U {
 		if( this.def.notNil ) {
 			var ldef = this.def;
 			var keys = ldef.keys;
-			var numIns = keys.select{ |key| "u_i_ar_.*_bus".matchRegexp(key.asString)  }.size;
-			var numOuts = keys.select{ |key| "u_o_ar_.*_bus".matchRegexp(key.asString)  }.size;
+			var numIns = ldef.audioIns.size;
+			var numOuts = ldef.audioOuts.size;
 			if(numIns > 1) {
 				Error("UX - must use Udef with no more then one audio input. Udef % has % audio inputs.".format(ldef.name, numIns)).throw
 			};
@@ -75,9 +75,6 @@ UX : U {
 			};
 			if((numIns==0)&&(numOuts==0)) {
 				Error("UX - %: must use Udef with at least one audio input or output.".format(ldef.name)).throw
-			};
-			if( (numIns==0)&&(numOuts==0) ) {
-				Error("UX - must use Udef with at least one input or output").throw
 			};
 			hasIn = numIns > 0;
 			hasOut = numOuts > 0;
@@ -91,25 +88,52 @@ UX : U {
 		this.changed( \init );
 	}
 
-	getSynthArgs {
-		var nonsynthKeys = this.argSpecs.select({ |item| item.mode == \nonsynth }).collect(_.name);
-		var inOut = if(hasIn){
-			[ \u_i_ar_0_bus, this.getArg(\u_i_ar_0_bus)+counter ]
-		}++if(hasOut){
-			[ \u_o_ar_0_bus, this.getArg(\u_o_ar_0_bus)+counter]
-		};
-		^(this.args.clump(2).select({ |item|
-			var key = item[0].asString;
-			(nonsynthKeys.includes( item[0] ) ||
-			"u_i_ar_.*_bus".matchRegexp(key) ||
-			"u_o_ar_.*_bus".matchRegexp(key) ).not
-		})++inOut).flatten(1);
+	audioIns {
+		^super.audioIns[0] !? { |i| n.collect{ |j| i+j } } ?? []
 	}
 
-	makeSynth { |target, startPos = 0, synthAction|
+	audioOuts {
+		^super.audioOuts[0] !? { |i| n.collect{ |j| i+j } } ?? []
+	}
+
+	getSynthArgs { |server, buses|
+		var	nonsynthKeys = this.argSpecs.select({ |item| item.mode == \nonsynth }).collect(_.name);
+		^if( ULib.useSupernova ) {
+			"UX - supernova".postln;
+			this.args.clump(2)
+			.select({ |item| nonsynthKeys.includes( item[0] ).not })
+			.collect{ |xs|
+				var key = xs[0];
+				if( key.asString.findRegexp("u_[oi]_ar_([0-9]*)_bus").size > 0 ) {
+					[key.postln, buses.at(\audio).at(xs[1]+counter).at(server).index.postln - server.options.firstPrivateBus ]
+				} {
+					if( key.asString.findRegexp("u_[oi]_kr_([0-9]*)_bus").size > 0 ) {
+						[key.postln, buses.at(\control).at(xs[1]+counter).at(server).index ]
+					} {
+						xs
+					}
+				}
+			}
+			.flatten(1)
+		} {
+			var inOut = if(hasIn){
+				[ \u_i_ar_0_bus, this.getArg(\u_i_ar_0_bus)+counter ]
+			}++if(hasOut){
+				[ \u_o_ar_0_bus, this.getArg(\u_o_ar_0_bus)+counter]
+			};
+			(this.args.clump(2).select({ |item|
+				var key = item[0].asString;
+				(nonsynthKeys.includes( item[0] ) ||
+					"u_i_ar_.*_bus".matchRegexp(key) ||
+					"u_o_ar_.*_bus".matchRegexp(key) ).not
+			})++inOut).flatten(1)
+		}
+	}
+
+	makeSynth { |target, startPos = 0, synthAction, buses|
 		var synths = n.collect{ |i|
 			counter = i;
-			this.def.makeSynth( this, target, startPos, synthAction );
+			this.def.makeSynth( this, target, startPos, synthAction, buses );
 		}.select(_.notNil);
 		if( synths.size == n ) {
 			this.umapPerform( \makeSynth, synths[0], startPos );
