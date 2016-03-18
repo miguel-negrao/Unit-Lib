@@ -196,7 +196,8 @@ UMenuWindow {
 					'Add Track', { UScoreEditorGUI.current !! { |x| x.scoreView.addTrack } },
 					'Remove Unused Tracks', { 
 						UScoreEditorGUI.current !! { |x| x.scoreView.removeUnusedTracks }
-					}
+					},
+				    'Repair System', { UGroup.all = []; }
 				)
 			)
 			.sortFunc_({true}) 
