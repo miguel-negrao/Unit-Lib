@@ -21,7 +21,6 @@ ULib {
     classvar <>servers;
 	classvar <>useSupernova = false;
 
-
     *initClass {
         servers = [Server.default]
     }
@@ -36,9 +35,14 @@ ULib {
         }.flat
     }
 
-	*waitForServersToBoot {
-        while({ this.allServers.collect( _.serverRunning ).every( _ == true ).not; },
-            { 0.2.wait; });
+	*bootIfNeeded {
+		this.allServers.do{ |s| if(s.serverRunning.not) { s.boot(onFailure: true) } };
+
+	}
+
+	*waitForServersToBoot { |limit = 100|
+		while({ this.allServers.collect( _.serverRunning ).every( _ == true ).not  and: {(limit = limit - 1) > 0} },
+            { 0.2.wait });
     }
 
 	*sync {
@@ -52,6 +56,124 @@ ULib {
             }
         }
     }
+
+	*startup { |sendDefsOnInit = true, createServers = false, numServers = 4, options, startGuis = true|
+
+		UChain.makeDefaultFunc = {
+			UChain( \bufSoundFile, \stereoOutput ).useSndFileDur
+		};
+
+		UnitRack.defsFolders = UnitRack.defsFolders.add(
+			Platform.userAppSupportDir ++ "/UnitRacks/";
+		);
+
+		//if( Server.program.asString.endsWith("supernova") ) {
+			//ULib.useSupernova = true
+		//};
+
+		this.createServers(createServers, numServers, options);
+
+		if( startGuis ) {
+			this.createGUIs;
+		};
+
+		//if not sending the defs they should have been written to disk once before
+		// with writeDefaultSynthDefs
+		Routine({
+			this.bootAndLoadDefs(sendDefsOnInit);
+		}).play(AppClock);
+	}
+
+	*startupR { |sendDefsOnInit = true, createServers = false, numServers = 4, options, startGuis = true|
+
+		UChain.makeDefaultFunc = {
+			UChain( \bufSoundFile, \stereoOutput ).useSndFileDur
+		};
+
+		UnitRack.defsFolders = UnitRack.defsFolders.add(
+			Platform.userAppSupportDir ++ "/UnitRacks/";
+		);
+
+		//if( Server.program.asString.endsWith("supernova") ) {
+			//ULib.useSupernova = true
+		//};
+
+		this.createServers(createServers, numServers, options);
+
+		if( startGuis ) {
+			this.createGUIs;
+		};
+
+		//if not sending the defs they should have been written to disk once before
+		// with writeDefaultSynthDefs
+		this.bootAndLoadDefs(sendDefsOnInit);
+	}
+
+	*createServers{ |createServers = false, numServers = 4, options|
+		if(createServers) {
+			if(numServers > 1) {
+			servers = [LoadBalancer(*numServers.collect{ |i|
+				Server("ULib server "++(i+1), NetAddr("127.0.0.1",57110+i), options)
+			})];
+			}{
+				servers = [Server("ULib server", NetAddr("127.0.0.1",57110), options)]
+			};
+			Server.default = this.allServers[0]
+		};
+	}
+
+	*bootAndLoadDefs { |sendDefsOnInit = true|
+		this.bootIfNeeded();
+		this.waitForServersToBoot;
+		"*** ULib servers booted ***".postln;
+		"*** loading ULib defs ***".postln;
+		if( sendDefsOnInit ) {
+			this.getDefaultSynthDefs;
+		} {
+
+			Udef.loadOnInit = false;
+			this.getDefaultUdefs;
+			Udef.loadOnInit = true;
+		};
+		"*** ULib defs loaded ***".postln;
+		"*** Unit Lib started ***".postln
+	}
+
+	*createGUIs {
+		if( (thisProcess.platform.class.asSymbol == 'OSXPlatform') && {
+			thisProcess.platform.ideName.asSymbol === \scapp
+		}) {
+			UMenuBar();
+		} {
+			UMenuWindow();
+		};
+		UGlobalGain.gui;
+		UGlobalEQ.gui;
+		if( ((thisProcess.platform.ideName == "scqt") && (ULib.allServers.size == 1)).not  ) {
+			ULib.serversWindow
+		}
+	}
+
+	*getDefaultUdefs{
+		^(Udef.loadAllFromDefaultDirectory ++
+			UMapDef.loadAllFromDefaultDirectory).select(_.notNil)
+	}
+
+	*getDefaultSynthDefs{
+		var defs;
+		Udef.loadOnInit = false;
+		defs = this.getDefaultUdefs.collect(_.synthDef).flat.select(_.notNil);
+		Udef.loadOnInit = true;
+		^defs
+
+	}
+
+	*writeDefaultSynthDefs {
+		this.getDefaultSynthDefs.do{ |def|
+			"writting % SynthDef file".format(def.name).postln;
+			def.justWriteDefFile;
+		}
+	}
 
     *serversWindow {
         var makePlotTree, makeMeter, killer;
@@ -107,89 +229,4 @@ ULib {
         ^w
     }
 
-	*startup { |sendDefsOnInit = true, createServers = false, numServers = 4, options, startGuis = true|
-
-		UChain.makeDefaultFunc = {
-			UChain( \bufSoundFile, \stereoOutput ).useSndFileDur
-		};
-
-		UnitRack.defsFolders = UnitRack.defsFolders.add(
-			Platform.userAppSupportDir ++ "/UnitRacks/";
-		);
-
-		if( Server.program.asString.endsWith("supernova") ) {
-			ULib.useSupernova = true
-		};
-
-		if(createServers) {
-			if(numServers > 1) {
-			servers = [LoadBalancer(*numServers.collect{ |i|
-				Server("ULib server "++(i+1), NetAddr("127.0.0.1",57110+i), options)
-			})];
-			}{
-				servers = [Server("ULib server", NetAddr("127.0.0.1",57110), options)]
-			};
-			Server.default = this.allServers[0]
-		};
-
-		if( startGuis ) {
-			if( (thisProcess.platform.class.asSymbol == 'OSXPlatform') && {
-				thisProcess.platform.ideName.asSymbol === \scapp
-			}) {
-				UMenuBar();
-			} {
-				UMenuWindow();
-			};
-			UGlobalGain.gui;
-			UGlobalEQ.gui;
-			if( ((thisProcess.platform.ideName == "scqt") && (ULib.allServers.size == 1)).not  ) {
-				ULib.serversWindow
-			}
-		};
-
-
-		//if not sending the defs they should have been written to disk once before
-		// with writeDefaultSynthDefs
-		if( sendDefsOnInit ) {
-			var defs = this.getDefaultSynthDefs;
-			ULib.allServers.do{ |sv| sv.waitForBoot({
-
-				defs.do( _.load( sv ) );
-
-			})
-			}
-		} {
-			ULib.allServers.do(_.boot);
-			Udef.loadOnInit = false;
-			this.getDefaultUdefs;
-			Udef.loadOnInit = true;
-        };
-
-		"\n\tUnit Lib started".postln
-	}
-
-	*getDefaultUdefs{
-		^(Udef.loadAllFromDefaultDirectory ++
-			UMapDef.loadAllFromDefaultDirectory).select(_.notNil)
-	}
-
-	*getDefaultSynthDefs{
-		var defs;
-		Udef.loadOnInit = false;
-		defs = this.getDefaultUdefs.collect(_.synthDef).flat.select(_.notNil);
-		Udef.loadOnInit = true;
-		^defs
-
-	}
-
-	*writeDefaultSynthDefs {
-		this.getDefaultSynthDefs.do{ |def|
-			"writting % SynthDef file".format(def.name).postln;
-			def.justWriteDefFile;
-		}
-	}
-
 }
-
-
-	
